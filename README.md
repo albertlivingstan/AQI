@@ -1,39 +1,37 @@
-**Welcome to your Base44 project** 
+# SolarAQI Enterprise Platform
 
-**About**
+SolarAQI is a comprehensive full-stack enterprise web application designed to provide real-time geospatial intelligence, complex air quality monitoring mechanisms, and next-generation solar energy forecasting utilizing real-time API aggregations mapped directly alongside interactive web applications. 
 
-View and Edit  your app on [Base44.com](http://Base44.com) 
+## Features
 
-This project contains everything you need to run your app locally.
+- **Geo Intelligence Control Panel**: Highly dynamic Leaflet mapping engine featuring real-time user location tracking and global Air Quality Index (AQI) metric heatmap layers.
+- **Admin Management Panel**: Administrative dashboard dedicated to ML Pipeline metrics, solar plant exporting functionality, and core backend testing logic.
+- **Data Source Engine**: MongoDB-backed data orchestration layer engineered to securely persist endpoints (like NASA POWER and OpenAQ) scaling infinitely.
+- **Enterprise Notification Subsystem**: Server-side integrated Twilio messaging protocols hooked up statically to handle SMS logic scaling during geospatial anomalies directly from the browser payload!
 
-**Edit the code in your local development environment**
+## How the SMS System Works
 
-Any change pushed to the repo will also be reflected in the Base44 Builder.
+The platform utilizes a backend route pipeline located in `server.js` configured with the official `twilio` dependency explicitly wrapped around an Express `POST` endpoint located at `/api/alert`.
 
-**Prerequisites:** 
+When an administrator clicks the **"Dispatch Test Alert"** inside front-end React environments, an HTTP Payload is requested via `fetch` logic hitting `/api/alert`.
 
-1. Clone the repository using the project's Git URL 
-2. Navigate to the project directory
-3. Install dependencies: `npm install`
-4. Create an `.env.local` file and set the right environment variables
+The `server.js` backend engine intercepts this request, queries your securely managed `.env` file containing the explicit internal API Keys (`TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN`), connects dynamically to the official Twilio cloud server environment, matches your static configured target receiver number (`+12293038214`), and shoots the customized ping instantly. Using environment variables guarantees these sensitive keys are excluded safely from Source Control `gitignore`.
 
+## Commands to Run
+
+To run the full stack locally on your machine, you must concurrently run both pieces of the architecture:
+
+### 1. Terminal 1: Run the Backend (Node/Express Server with MongoDB)
+*Ensure you have MongoDB running locally natively on `localhost:27017`!*
+```bash
+# This exposes the connection to Twilio and handles all API logic.
+node server.js
 ```
-VITE_BASE44_APP_ID=your_app_id
-VITE_BASE44_APP_BASE_URL=your_backend_url
 
-e.g.
-VITE_BASE44_APP_ID=cbef744a8545c389ef439ea6
-VITE_BASE44_APP_BASE_URL=https://my-to-do-list-81bfaad7.base44.app
+### 2. Terminal 2: Run the Frontend (React UI utilizing Vite)
+```bash
+# This hosts your web interface proxying data back to the Node Express server.
+npm run dev
 ```
 
-Run the app: `npm run dev`
-
-**Publish your changes**
-
-Open [Base44.com](http://Base44.com) and click on Publish.
-
-**Docs & Support**
-
-Documentation: [https://docs.base44.com/Integrations/Using-GitHub](https://docs.base44.com/Integrations/Using-GitHub)
-
-Support: [https://app.base44.com/support](https://app.base44.com/support)
+Both need to remain running to seamlessly enable endpoint communication across the network!
