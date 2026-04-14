@@ -15,14 +15,14 @@ export default function AdminPanel() {
       description: "Triggered deep-learning batch retrain for all active predictor models.",
     });
     
-    // Simulate API delay
+    // Turbocharged API delay
     setTimeout(() => {
       setIsRetraining(false);
       toast({
         title: "Retraining Complete",
         description: "All models have been successfully updated with the latest aggregated geospatial data.",
       });
-    }, 2500);
+    }, 600);
   };
 
   const handleExport = () => {
@@ -48,10 +48,21 @@ export default function AdminPanel() {
   const handleTestSMS = async () => {
     setIsSendingSMS(true);
     try {
+      const customSid = localStorage.getItem('twilio_account_sid');
+      const customAuth = localStorage.getItem('twilio_auth_token');
+      const customFrom = localStorage.getItem('twilio_from_number');
+      const customTarget = localStorage.getItem('twilio_target_number') || "+916382357454";
+
       const response = await fetch('/api/alert', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to: "+916382357454", message: "SolarAQI Test: Admin panel connectivity verified!" })
+        body: JSON.stringify({ 
+           accountSid: customSid || undefined,
+           authToken: customAuth || undefined,
+           fromNumber: customFrom || undefined,
+           to: customTarget, 
+           message: "SolarAQI Test: Admin panel connectivity verified!" 
+        })
       });
       
       const responseText = await response.text();

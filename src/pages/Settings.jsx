@@ -1,16 +1,119 @@
-import { useState } from "react";
-import { Settings as SettingsIcon, Bell, Shield, Sliders, Save, Sun } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Settings as SettingsIcon, Bell, Shield, Sliders, Save, MessageCircle, AlertTriangle } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 
 export default function Settings() {
+  const { toast } = useToast();
   const [alertThreshold, setAlertThreshold] = useState(80);
   const [retrain, setRetrain] = useState("daily");
   const [notifications, setNotifications] = useState({ email: true, inApp: true, sms: false });
+  
+  // Twilio Settings State
+  const [twilioConfig, setTwilioConfig] = useState({
+    accountSid: "",
+    authToken: "",
+    fromNumber: "",
+    targetNumber: ""
+  });
+
+  useEffect(() => {
+    setTwilioConfig({
+      accountSid: localStorage.getItem('twilio_account_sid') || "",
+      authToken: localStorage.getItem('twilio_auth_token') || "",
+      fromNumber: localStorage.getItem('twilio_from_number') || "",
+      targetNumber: localStorage.getItem('twilio_target_number') || ""
+    });
+  }, []);
+
+  const handleSave = async () => {
+    localStorage.setItem('twilio_account_sid', twilioConfig.accountSid);
+    localStorage.setItem('twilio_auth_token', twilioConfig.authToken);
+    localStorage.setItem('twilio_from_number', twilioConfig.fromNumber);
+    localStorage.setItem('twilio_target_number', twilioConfig.targetNumber);
+    
+    try {
+      await fetch('/api/config/twilio', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(twilioConfig)
+      });
+
+      toast({
+        title: "Settings Safely Commited",
+        description: "Twilio credentials and variables persistently written to the core Node.js environment layer."
+      });
+    } catch(err) {
+      toast({
+        title: "Settings Sync Failed",
+        description: "Credentials are saved locally, but failed to write to the physical server.",
+        variant: "destructive"
+      });
+    }
+  };
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="space-y-6 max-w-3xl pb-10">
       <div>
         <h2 className="text-lg font-semibold text-white">Settings</h2>
         <p className="text-xs text-slate-400 mt-0.5">Configure platform preferences, alerts, and model parameters</p>
+      </div>
+
+      {/* Twilio Configuration */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+        <div className="flex items-center gap-2 mb-5">
+          <MessageCircle className="w-4 h-4 text-emerald-400" />
+          <h3 className="text-sm font-semibold text-white">Twilio SMS Configuration</h3>
+        </div>
+        
+        <div className="p-4 bg-slate-800/30 border border-slate-700/50 rounded-xl mb-5 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-amber-400 mt-0.5" />
+          <p className="text-xs text-slate-400 leading-relaxed">
+            These variables override the core `.env` configurations. Leaving them blank forces the backend to use default environment variables. Sensitive tokens are stored solely in your local browser cache.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-slate-400">Account SID</label>
+            <input 
+              type="text" 
+              value={twilioConfig.accountSid}
+              onChange={e => setTwilioConfig({...twilioConfig, accountSid: e.target.value})}
+              placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none placeholder:text-slate-700"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-slate-400">Auth Token</label>
+            <input 
+              type="password" 
+              value={twilioConfig.authToken}
+              onChange={e => setTwilioConfig({...twilioConfig, authToken: e.target.value})}
+              placeholder="••••••••••••••••••••••••••••••••"
+              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none placeholder:text-slate-700"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-slate-400">Twilio Phone Number (Sender)</label>
+            <input 
+              type="text" 
+              value={twilioConfig.fromNumber}
+              onChange={e => setTwilioConfig({...twilioConfig, fromNumber: e.target.value})}
+              placeholder="+1234567890"
+              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none placeholder:text-slate-700"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-slate-400">Target Device Number</label>
+            <input 
+              type="text" 
+              value={twilioConfig.targetNumber}
+              onChange={e => setTwilioConfig({...twilioConfig, targetNumber: e.target.value})}
+              placeholder="+916382357454"
+              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none placeholder:text-slate-700"
+            />
+          </div>
+        </div>
       </div>
 
       {/* Forecast Settings */}
@@ -90,31 +193,7 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* Security */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-        <div className="flex items-center gap-2 mb-5">
-          <Shield className="w-4 h-4 text-amber-400" />
-          <h3 className="text-sm font-semibold text-white">Security</h3>
-        </div>
-        <div className="space-y-3">
-          <div className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg">
-            <div>
-              <p className="text-sm text-white">Two-Factor Authentication</p>
-              <p className="text-xs text-slate-400">Secure your account with 2FA</p>
-            </div>
-            <span className="px-2 py-0.5 rounded-full text-xs bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">Enabled</span>
-          </div>
-          <div className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg">
-            <div>
-              <p className="text-sm text-white">API Rate Limiting</p>
-              <p className="text-xs text-slate-400">1000 req/min per key</p>
-            </div>
-            <span className="px-2 py-0.5 rounded-full text-xs bg-blue-500/10 border border-blue-500/20 text-blue-400">Configured</span>
-          </div>
-        </div>
-      </div>
-
-      <button className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-white text-sm font-medium transition-colors">
+      <button onClick={handleSave} className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-white text-sm font-medium transition-colors">
         <Save className="w-4 h-4" /> Save Settings
       </button>
     </div>

@@ -5,11 +5,11 @@ export default function SplashScreen({ onComplete }) {
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
-    // Show splash screen for 2.5 seconds
+    // Show splash screen to simulate system initialization
     const timer = setTimeout(() => {
       setIsVisible(false);
-      setTimeout(onComplete, 500); // 500ms for exit animation
-    }, 2500);
+      setTimeout(onComplete, 400); // 400ms for exit animation
+    }, 2000);
     return () => clearTimeout(timer);
   }, [onComplete]);
 
@@ -68,7 +68,7 @@ export default function SplashScreen({ onComplete }) {
           className="h-full bg-gradient-to-r from-amber-400 to-orange-500"
           initial={{ width: "0%" }}
           animate={{ width: "100%" }}
-          transition={{ duration: 2, ease: "easeInOut" }}
+          transition={{ duration: 1.5, ease: "easeInOut" }}
         />
       </motion.div>
     </motion.div>

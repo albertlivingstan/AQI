@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents, Circle } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, Circle, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { motion, AnimatePresence } from "framer-motion";
@@ -102,13 +102,44 @@ function SidePanel({ side, open, children }) {
   );
 }
 
-function UserLocation() {
+function UserLocation({ setGlobalUserLocationName }) {
   const [position, setPosition] = useState(null);
+  const [localName, setLocalName] = useState("Your device location");
+
   const map = useMapEvents({
-    locationfound(e) {
+    async locationfound(e) {
       setPosition(e.latlng);
       map.flyTo(e.latlng, map.getZoom());
+      
+      try {
+        const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${e.latlng.lat}&lon=${e.latlng.lng}&zoom=10`);
+        const geoData = await geoRes.json();
+        if (geoData && geoData.display_name) {
+          const parsedName = geoData.display_name.split(',').slice(0, 3).join(',').trim();
+          setLocalName(parsedName);
+          if (setGlobalUserLocationName) setGlobalUserLocationName(parsedName);
+        }
+      } catch (err) {
+        console.warn("Reverse geocode failed for user location");
+      }
     },
+    async locationerror(e) {
+      console.warn("GPS natively denied or unavailable. Fallback to IP Geolocation initiated.");
+      try {
+        // Fallback to purely IP-driven location if they are on HTTP or denied device permissions!
+        const res = await fetch("https://ipapi.co/json/");
+        if (!res.ok) throw new Error("Fallback IP API returned non-200");
+        const data = await res.json();
+        if (data.latitude && data.longitude) {
+           const fallbackPos = { lat: data.latitude, lng: data.longitude };
+           // Re-trigger the primary logic pipeline organically
+           map.fire('locationfound', { latlng: fallbackPos });
+           map.flyTo(fallbackPos, 10);
+        }
+      } catch (fallbackError) {
+        console.error("Even remote IP fallback tracking failed.", fallbackError);
+      }
+    }
   });
 
   useEffect(() => {
@@ -117,8 +148,24 @@ function UserLocation() {
 
   return position === null ? null : (
     <Marker position={position}>
-      <Popup>You are here</Popup>
+      <Popup>
+        <span className="font-semibold text-sm block mb-1">Live Feed</span>
+        <span className="text-xs">{localName}</span>
+      </Popup>
     </Marker>
+  );
+}
+
+function LocateMeBtn() {
+  const map = useMap();
+  return (
+    <button 
+      onClick={() => map.locate({ setView: true, maxZoom: 12 })}
+      className="absolute bottom-24 right-5 md:bottom-8 md:right-8 z-[1000] p-3 rounded-full bg-slate-900/90 backdrop-blur-md border border-amber-500/30 text-amber-400 hover:bg-amber-500 hover:text-slate-950 transition-all shadow-lg shadow-black/50"
+      title="My Current Location"
+    >
+      <MapPin className="w-5 h-5" />
+    </button>
   );
 }
 
@@ -133,6 +180,9 @@ export default function GeoMap() {
   const [mobileSheet, setMobileSheet] = useState(null);
   const [timeOffset, setTimeOffset] = useState(0);
 
+  // Lifted state to track the user's global device position for SMS inclusion
+  const [globalUserLocationName, setGlobalUserLocationName] = useState("Unknown");
+
   const handleToggle = useCallback((id) => {
     setActiveLayers(prev => prev.includes(id) ? prev.filter(l => l !== id) : [...prev, id]);
   }, []);
@@ -145,21 +195,43 @@ export default function GeoMap() {
     setLoading(true);
     setSelectedLocation(null);
     setMobileSheet("location");
-    await new Promise(r => setTimeout(r, 1600));
+    // Dramatically optimized map loading speed 
+    await new Promise(r => setTimeout(r, 300));
     
     const data = generateMockData(lat, lng);
+    
+    // Reverse Geocode the coordinates into a real-world physical address!
+    try {
+      const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10`);
+      const geoData = await geoRes.json();
+      if (geoData && geoData.display_name) {
+         // Cleanly slice the output to avoid overly long strings (Targeting City, State, Country)
+         data.name = geoData.display_name.split(',').slice(0, 3).join(',').trim();
+      }
+    } catch (e) {
+      console.warn("Reverse geocoding failed, falling back to coordinates.");
+    }
+
     setSelectedLocation(data);
     setLoading(false);
 
     // Dispatch SMS report automatically
     try {
+      const customSid = localStorage.getItem('twilio_account_sid');
+      const customAuth = localStorage.getItem('twilio_auth_token');
+      const customFrom = localStorage.getItem('twilio_from_number');
+      const customTarget = localStorage.getItem('twilio_target_number') || "+916382357454";
+
       const smsMessage = `SolarAQI Insight:\nLocation: ${data.name}\nAQI: ${data.aqi} (${data.aqiLabel})\nRadiation: ${data.radiation} W/m²\nEst Output: ${data.output} MW`;
       await fetch('/api/alert', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          to: "+916382357454", 
-          message: smsMessage 
+           accountSid: customSid || undefined,
+           authToken: customAuth || undefined,
+           fromNumber: customFrom || undefined,
+           to: customTarget, 
+           message: smsMessage 
         })
       });
       toast({
@@ -173,7 +245,7 @@ export default function GeoMap() {
         variant: "destructive"
       });
     }
-  }, [toast]);
+  }, [globalUserLocationName, toast]);
 
   const timeLabels = ["Jan 2024", "Mar 2024", "May 2024", "Jul 2024", "Sep 2024", "Nov 2024", "Jan 2025"];
 
@@ -242,7 +314,8 @@ export default function GeoMap() {
             <TileLayer url="https://tiles.aqicn.org/tiles/usepa-aqi/{z}/{x}/{y}.png" opacity={opacities.aqi} attribution="Air Quality Map" />
           )}
           <ClickHandler onMapClick={handleMapClick} />
-          <UserLocation />
+          <UserLocation setGlobalUserLocationName={setGlobalUserLocationName} />
+          <LocateMeBtn />
           {selectedLocation && (
             <>
               <Marker position={[selectedLocation.lat, selectedLocation.lng]}>
