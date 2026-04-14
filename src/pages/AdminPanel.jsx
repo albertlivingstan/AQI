@@ -51,10 +51,17 @@ export default function AdminPanel() {
       const response = await fetch('/api/alert', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: "SolarAQI Test: Admin panel connectivity verified!" })
+        body: JSON.stringify({ to: "+916382357454", message: "SolarAQI Test: Admin panel connectivity verified!" })
       });
       
-      const data = await response.json();
+      const responseText = await response.text();
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (e) {
+        throw new Error("Backend server is unreachable. Please ensure 'node server.js' is running.");
+      }
+
       if (!response.ok) throw new Error(data.error || 'Trigger failed');
       
       toast({
@@ -218,7 +225,7 @@ export default function AdminPanel() {
             <div className="space-y-2 mb-4">
                <div className="flex items-center justify-between text-xs py-1.5 border-b border-slate-800">
                  <span className="text-slate-400">Target Device (Verified)</span>
-                 <span className="text-slate-200 font-mono">+1 (229) 303-8214</span>
+                 <span className="text-slate-200 font-mono">+91 6382357454</span>
                </div>
                <div className="flex items-center justify-between text-xs py-1.5 border-b border-slate-800">
                  <span className="text-slate-400">Account SID</span>
