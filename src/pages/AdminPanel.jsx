@@ -1,7 +1,77 @@
+import { useState } from "react";
 import { modelMetrics, solarPlants } from "../data/mockData";
-import { ShieldCheck, Users, RefreshCw, Download, Sliders, Activity, Brain, Server } from "lucide-react";
+import { ShieldCheck, Users, RefreshCw, Download, Sliders, Activity, Brain, Server, MessageCircle, AlertTriangle } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 
 export default function AdminPanel() {
+  const { toast } = useToast();
+  const [isRetraining, setIsRetraining] = useState(false);
+  const [isSendingSMS, setIsSendingSMS] = useState(false);
+
+  const handleRetrainAll = () => {
+    setIsRetraining(true);
+    toast({
+      title: "Model Retraining Initiated",
+      description: "Triggered deep-learning batch retrain for all active predictor models.",
+    });
+    
+    // Simulate API delay
+    setTimeout(() => {
+      setIsRetraining(false);
+      toast({
+        title: "Retraining Complete",
+        description: "All models have been successfully updated with the latest aggregated geospatial data.",
+      });
+    }, 2500);
+  };
+
+  const handleExport = () => {
+    // Generate mock CSV data
+    const headers = "Plant Name,Location,Capacity,Current Output,Efficiency\n";
+    const rows = solarPlants.map(p => `${p.name},"${p.location}",${p.capacity},${p.output},${p.efficiency}`).join("\n");
+    const csvContent = "data:text/csv;charset=utf-8," + headers + rows;
+    
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "solaraqi_plant_export.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast({
+      title: "Export Successful",
+      description: "Plant registry downloaded as solaraqi_plant_export.csv",
+    });
+  };
+
+  const handleTestSMS = async () => {
+    setIsSendingSMS(true);
+    try {
+      const response = await fetch('/api/alert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: "SolarAQI Test: Admin panel connectivity verified!" })
+      });
+      
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Trigger failed');
+      
+      toast({
+        title: "SMS Triggered",
+        description: data.message,
+      });
+    } catch (err) {
+      toast({
+        title: "SMS Error",
+        description: err.message,
+        variant: "destructive"
+      });
+    } finally {
+      setIsSendingSMS(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -35,8 +105,12 @@ export default function AdminPanel() {
               <Brain className="w-4 h-4 text-amber-400" />
               <h3 className="text-sm font-semibold text-white">ML Model Management</h3>
             </div>
-            <button className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-medium hover:bg-amber-500/20 transition-colors">
-              <RefreshCw className="w-3 h-3" /> Retrain All
+            <button 
+              onClick={handleRetrainAll}
+              disabled={isRetraining}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-medium hover:bg-amber-500/20 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3 h-3 ${isRetraining ? 'animate-spin' : ''}`} /> {isRetraining ? 'Retraining...' : 'Retrain All'}
             </button>
           </div>
           <div className="space-y-3">
@@ -68,7 +142,10 @@ export default function AdminPanel() {
               <ShieldCheck className="w-4 h-4 text-amber-400" />
               <h3 className="text-sm font-semibold text-white">Plant Management</h3>
             </div>
-            <button className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-xs font-medium hover:bg-slate-700 transition-colors">
+            <button 
+              onClick={handleExport}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-xs font-medium hover:bg-slate-700 transition-colors"
+            >
               <Download className="w-3 h-3" /> Export
             </button>
           </div>
@@ -94,27 +171,75 @@ export default function AdminPanel() {
         </div>
       </div>
 
-      {/* API & Security */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-        <h3 className="text-sm font-semibold text-white mb-4">API Keys & Access Control</h3>
-        <div className="space-y-3">
-          {[
-            { name: "NASA POWER API Key", key: "nasa_••••••••••••••••f3a2", scope: "Read-only", status: "Active" },
-            { name: "OpenAQ API Key", key: "oaq_••••••••••••••••9c1b", scope: "Read-only", status: "Active" },
-            { name: "Internal Admin Token", key: "admin_••••••••••••••••7e4f", scope: "Full access", status: "Active" },
-          ].map(k => (
-            <div key={k.name} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg gap-4">
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-white">{k.name}</p>
-                <p className="text-xs text-slate-400 font-mono">{k.key}</p>
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        {/* API & Security */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+          <h3 className="text-sm font-semibold text-white mb-4">API Keys & Access Control</h3>
+          <div className="space-y-3">
+            {[
+              { name: "NASA POWER API Key", key: "nasa_••••••••••••••••f3a2", scope: "Read-only", status: "Active" },
+              { name: "OpenAQ API Key", key: "oaq_••••••••••••••••9c1b", scope: "Read-only", status: "Active" },
+              { name: "Internal Admin Token", key: "admin_••••••••••••••••7e4f", scope: "Full access", status: "Active" },
+            ].map(k => (
+              <div key={k.name} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg gap-4">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-white">{k.name}</p>
+                  <p className="text-xs text-slate-400 font-mono">{k.key}</p>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className="text-xs text-slate-400">{k.scope}</span>
+                  <span className="px-2 py-0.5 rounded-full text-xs bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">{k.status}</span>
+                </div>
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <span className="text-xs text-slate-400">{k.scope}</span>
-                <span className="px-2 py-0.5 rounded-full text-xs bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">{k.status}</span>
+            ))}
+          </div>
+        </div>
+
+        {/* Twilio Output Integration */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <MessageCircle className="w-4 h-4 text-emerald-400" />
+              <h3 className="text-sm font-semibold text-white">SMS Escalation Pipeline</h3>
+            </div>
+          </div>
+          
+          <div className="p-4 bg-slate-800/30 border border-slate-700/50 rounded-xl">
+            <div className="flex items-start gap-3 mb-4">
+              <AlertTriangle className="w-5 h-5 text-amber-400 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-slate-200">Twilio Integration Active</p>
+                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                  The notification layer is connected to the core pipeline. Security anomalies and harsh climate variance warnings will broadcast SMS to registered administrators.
+                </p>
               </div>
             </div>
-          ))}
+
+            <div className="space-y-2 mb-4">
+               <div className="flex items-center justify-between text-xs py-1.5 border-b border-slate-800">
+                 <span className="text-slate-400">Target Device (Verified)</span>
+                 <span className="text-slate-200 font-mono">+1 (229) 303-8214</span>
+               </div>
+               <div className="flex items-center justify-between text-xs py-1.5 border-b border-slate-800">
+                 <span className="text-slate-400">Account SID</span>
+                 <span className="text-slate-200 font-mono line-through opacity-70">AC7fc64...</span>
+               </div>
+               <div className="flex items-center justify-between text-xs py-1.5">
+                 <span className="text-slate-400">Service Status</span>
+                 <span className="text-emerald-400 font-medium">Listening</span>
+               </div>
+            </div>
+
+            <button 
+              onClick={handleTestSMS}
+              disabled={isSendingSMS}
+              className="w-full flex justify-center items-center gap-2 px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 text-emerald-400 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3 h-3 ${isSendingSMS ? 'animate-spin' : ''}`} /> {isSendingSMS ? 'Dispatching...' : 'Dispatch Test Alert'}
+            </button>
+          </div>
         </div>
+
       </div>
     </div>
   );
