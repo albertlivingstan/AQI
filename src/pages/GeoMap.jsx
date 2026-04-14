@@ -8,6 +8,7 @@ import LocationPanel from "../components/map/LocationPanel";
 import InsightsPanel from "../components/map/InsightsPanel";
 import WhatIfSimulator from "../components/map/WhatIfSimulator";
 import { Layers, BarChart2, MapPin, X, FlaskConical } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 
 // Fix leaflet default marker icons
 // @ts-ignore
@@ -122,6 +123,7 @@ function UserLocation() {
 }
 
 export default function GeoMap() {
+  const { toast } = useToast();
   const [activeLayers, setActiveLayers] = useState(["solar", "aqi"]);
   const [opacities, setOpacities] = useState({ solar: 0.7, aerosol: 0.6, aqi: 0.5, cloud: 0.5 });
   const [selectedLocation, setSelectedLocation] = useState(null);
@@ -144,9 +146,34 @@ export default function GeoMap() {
     setSelectedLocation(null);
     setMobileSheet("location");
     await new Promise(r => setTimeout(r, 1600));
-    setSelectedLocation(generateMockData(lat, lng));
+    
+    const data = generateMockData(lat, lng);
+    setSelectedLocation(data);
     setLoading(false);
-  }, []);
+
+    // Dispatch SMS report automatically
+    try {
+      const smsMessage = `SolarAQI Insight:\nLocation: ${data.name}\nAQI: ${data.aqi} (${data.aqiLabel})\nRadiation: ${data.radiation} W/m²\nEst Output: ${data.output} MW`;
+      await fetch('/api/alert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          to: "+916382357454", 
+          message: smsMessage 
+        })
+      });
+      toast({
+        title: "Report Dispatched",
+        description: "An SMS containing the live location insights was sent to your phone."
+      });
+    } catch (err) {
+      toast({
+        title: "SMS Dispatch Failed",
+        description: "Failed to send the location alert.",
+        variant: "destructive"
+      });
+    }
+  }, [toast]);
 
   const timeLabels = ["Jan 2024", "Mar 2024", "May 2024", "Jul 2024", "Sep 2024", "Nov 2024", "Jan 2025"];
 
