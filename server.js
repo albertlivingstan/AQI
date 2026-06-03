@@ -49,19 +49,98 @@ const seedDatabase = async () => {
   }
 };
 
+// Mock generators for fallback if OpenWeather key is missing or API errors
+function generateMockAqiForecast(lat, lon) {
+  const list = [];
+  const now = Math.floor(Date.now() / 1000);
+  for (let i = 0; i < 120; i++) {
+    const dt = now + i * 3600;
+    const hourOfDay = new Date(dt * 1000).getHours();
+    const diurnalPM = Math.sin(((hourOfDay - 8) * Math.PI) / 12) * 15 + 25;
+    const diurnalO3 = Math.sin(((hourOfDay - 14) * Math.PI) / 12) * 30 + 40;
+    const latFactor = Math.abs(Math.sin(lat)) * 20;
+    list.push({
+      main: { aqi: 1 },
+      components: {
+        co: Math.max(150, 200 + Math.random() * 80 + diurnalPM * 3),
+        no: Math.max(0.1, 1 + Math.random() * 2),
+        no2: Math.max(2, 5 + Math.random() * 4 + diurnalPM * 0.2),
+        o3: Math.max(5, diurnalO3 + latFactor + Math.random() * 10),
+        so2: Math.max(1, 3 + Math.random() * 2),
+        pm2_5: Math.max(2, diurnalPM + latFactor + Math.random() * 5),
+        pm10: Math.max(5, diurnalPM * 1.8 + latFactor * 1.5 + Math.random() * 10),
+        nh3: Math.max(1, 4 + Math.random() * 3)
+      },
+      dt
+    });
+  }
+  return { coord: { lat: parseFloat(lat), lon: parseFloat(lon) }, list, demoMode: true };
+}
+
+function generateMockWeatherForecast(lat, lon) {
+  const list = [];
+  const now = Math.floor(Date.now() / 1000);
+  for (let i = 0; i < 40; i++) {
+    const dt = now + i * 3 * 3600;
+    const date = new Date(dt * 1000);
+    const hourOfDay = date.getHours();
+    const dtStr = date.toISOString().replace('T', ' ').substring(0, 19);
+    const tempSin = Math.sin(((hourOfDay - 14) * Math.PI) / 12);
+    const baseTemp = 24 + Math.abs(Math.sin(lat)) * -10;
+    const temperature = baseTemp + tempSin * 5 + Math.random() * 2;
+    const humidity = Math.max(20, Math.min(100, 60 - tempSin * 25 + Math.random() * 10));
+    list.push({
+      dt,
+      main: {
+        temp: temperature,
+        feels_like: temperature + (humidity > 70 ? 2 : -1),
+        temp_min: temperature - 1,
+        temp_max: temperature + 1,
+        pressure: 1010 + Math.floor(Math.sin(i / 10) * 5),
+        humidity,
+        temp_kf: 0
+      },
+      weather: [{
+        id: humidity > 85 ? 500 : humidity > 70 ? 802 : 800,
+        main: humidity > 85 ? "Rain" : humidity > 70 ? "Clouds" : "Clear",
+        description: humidity > 85 ? "light rain" : humidity > 70 ? "broken clouds" : "clear sky",
+        icon: humidity > 85 ? "10d" : humidity > 70 ? "03d" : "01d"
+      }],
+      clouds: { all: humidity > 70 ? 70 : 10 },
+      wind: {
+        speed: 2.0 + Math.abs(Math.sin(i / 5)) * 6 + Math.random() * 2,
+        deg: Math.floor(Math.random() * 360),
+        gust: 4.0
+      },
+      visibility: 10000,
+      pop: humidity > 85 ? 0.4 : 0,
+      dt_txt: dtStr
+    });
+  }
+  return {
+    list,
+    city: { id: 9999, name: "Simulated Location", coord: { lat: parseFloat(lat), lon: parseFloat(lon) }, country: "SIM" },
+    demoMode: true
+  };
+}
+
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/solaraqi';
+let isDbConnected = false;
+
 // Connect to MongoDB
-mongoose.connect('mongodb://localhost:27017/solaraqi')
+mongoose.connect(MONGODB_URI)
   .then(() => {
     console.log('Successfully connected to MongoDB.');
+    isDbConnected = true;
     seedDatabase();
   })
-  .catch(err => console.error('MongoDB connection error:', err));
+  .catch(err => console.error('MongoDB connection error (operating in DB-less fallback mode):', err.message));
 
 app.use(express.json());
 
 // API: Fetch Real-Time Data (AQI, Weather, Solar)
 app.get('/api/realtime', async (req, res) => {
-  const lat = req.query.lat || '51.5074'; // Default to London
+  const lat = req.query.lat || '51.5074';
   const lon = req.query.lon || '-0.1278';
   const apiKey = process.env.OPENWEATHER_API_KEY;
 
@@ -72,9 +151,12 @@ app.get('/api/realtime', async (req, res) => {
     description: 'clear sky'
   };
 
-  if (apiKey) {
+  let demoMode = false;
+
+  if (apiKey && apiKey !== "your_api_key_here") {
     try {
       const response = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`);
+      if (!response.ok) throw new Error('API key rejected or connection error');
       const data = await response.json();
       if (data.main) {
         weatherData = {
@@ -85,8 +167,11 @@ app.get('/api/realtime', async (req, res) => {
         };
       }
     } catch (err) {
-      console.error('Error fetching OpenWeatherMap data:', err);
+      console.warn('Error fetching OpenWeatherMap data, using local simulation:', err.message);
+      demoMode = true;
     }
+  } else {
+    demoMode = true;
   }
 
   res.json({
@@ -96,7 +181,8 @@ app.get('/api/realtime', async (req, res) => {
     temperature: weatherData.temp,
     humidity: weatherData.humidity,
     description: weatherData.description,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    demoMode
   });
 });
 
@@ -106,8 +192,9 @@ app.get('/api/aqi/forecast', async (req, res) => {
   const lon = req.query.lon || '77.5946';
   const apiKey = process.env.OPENWEATHER_API_KEY;
 
-  if (!apiKey) {
-    return res.status(500).json({ error: 'OpenWeather API Key not configured in backend .env' });
+  if (!apiKey || apiKey === "your_api_key_here") {
+    console.warn("Using simulated AQI forecast data due to missing API key");
+    return res.json(generateMockAqiForecast(lat, lon));
   }
 
   try {
@@ -119,8 +206,8 @@ app.get('/api/aqi/forecast', async (req, res) => {
     const data = await response.json();
     res.json(data);
   } catch (err) {
-    console.error('Error fetching AQI forecast:', err);
-    res.status(500).json({ error: 'Failed to fetch AQI forecast from OpenWeather' });
+    console.error('Error fetching AQI forecast, falling back to mock:', err.message);
+    res.json(generateMockAqiForecast(lat, lon));
   }
 });
 
@@ -130,8 +217,9 @@ app.get('/api/weather/forecast', async (req, res) => {
   const lon = req.query.lon || '77.5946';
   const apiKey = process.env.OPENWEATHER_API_KEY;
 
-  if (!apiKey) {
-    return res.status(500).json({ error: 'OpenWeather API Key not configured in backend .env' });
+  if (!apiKey || apiKey === "your_api_key_here") {
+    console.warn("Using simulated weather forecast data due to missing API key");
+    return res.json(generateMockWeatherForecast(lat, lon));
   }
 
   try {
@@ -143,14 +231,22 @@ app.get('/api/weather/forecast', async (req, res) => {
     const data = await response.json();
     res.json(data);
   } catch (err) {
-    console.error('Error fetching weather forecast:', err);
-    res.status(500).json({ error: 'Failed to fetch weather forecast from OpenWeather' });
+    console.error('Error fetching weather forecast, falling back to mock:', err.message);
+    res.json(generateMockWeatherForecast(lat, lon));
   }
 });
 
 // API: Get Data Sources
 app.get('/api/sources', async (req, res) => {
   try {
+    if (!isDbConnected) {
+      return res.json([
+        { name: "NASA POWER API", type: "Satellite", status: "active", lastSync: "2 min ago", records: 14823, url: "https://power.larc.nasa.gov/api/v1/" },
+        { name: "OpenAQ Network", type: "AQI Sensor", status: "active", lastSync: "5 min ago", records: 9341, url: "https://api.openaq.org/v2/" },
+        { name: "NOAA Weather API", type: "Weather", status: "active", lastSync: "1 min ago", records: 22190, url: "https://api.weather.gov/" },
+        { name: "Local IoT Sensors", type: "IoT", status: "warning", lastSync: "18 min ago", records: 5762, url: "http://10.0.0.4/sensors" }
+      ]);
+    }
     const sources = await Source.find().sort({ _id: -1 });
     res.json(sources);
   } catch (err) {
@@ -162,6 +258,10 @@ app.get('/api/sources', async (req, res) => {
 app.post('/api/sources', async (req, res) => {
   const { name, type, url } = req.body;
   if (!name || !type) return res.status(400).json({ error: 'Name and type required' });
+
+  if (!isDbConnected) {
+    return res.status(503).json({ error: 'Database connection offline. Operating in fallback mode.' });
+  }
 
   try {
     const newSource = new Source({ name, type, url });
@@ -392,6 +492,10 @@ app.use((req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
-app.listen(PORT, () => {
-  console.log(`Server is running locally at http://localhost:${PORT}`);
-});
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`Server is running locally at http://localhost:${PORT}`);
+  });
+}
+
+export default app;

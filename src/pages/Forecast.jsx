@@ -38,6 +38,8 @@ export default function Forecast() {
   const [tempDelta, setTempDelta] = useState(0);
   const [emissionDelta, setEmissionDelta] = useState(0);
 
+  const [isDemoMode, setIsDemoMode] = useState(false);
+
   // Chart state
   const [selectedChartMetric, setSelectedChartMetric] = useState("aqi");
 
@@ -51,6 +53,7 @@ export default function Forecast() {
         if (!aqiRes.ok) throw new Error("Failed to fetch AQI forecast");
         const aqiData = await aqiRes.json();
         setAqiForecast(aqiData);
+        setIsDemoMode(!!aqiData.demoMode);
 
         const weatherRes = await fetch(`/api/weather/forecast?lat=${coordinates.lat}&lon=${coordinates.lon}`);
         if (!weatherRes.ok) throw new Error("Failed to fetch weather forecast");
@@ -448,13 +451,13 @@ export default function Forecast() {
                   placeholder="Enter city (e.g., London, Chennai)"
                   value={citySearch}
                   onChange={(e) => setCitySearch(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-3 py-2 text-base md:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
                 />
               </div>
               <button
                 type="submit"
                 disabled={loading}
-                className="bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 font-semibold px-4 py-2 rounded-lg text-xs transition-colors"
+                className="bg-amber-500 hover:bg-amber-600 active:scale-95 disabled:opacity-50 text-slate-950 font-bold px-4 py-2 rounded-lg text-xs transition-all duration-75"
               >
                 Search
               </button>
@@ -462,7 +465,7 @@ export default function Forecast() {
                 type="button"
                 onClick={handleUseGPS}
                 disabled={loading}
-                className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold px-3 py-2 rounded-lg text-xs transition-colors flex items-center gap-1.5"
+                className="bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 font-semibold px-3 py-2 rounded-lg text-xs transition-all duration-75 flex items-center gap-1.5"
                 title="Locate via device GPS"
               >
                 <Navigation className="w-3.5 h-3.5" />
@@ -475,6 +478,18 @@ export default function Forecast() {
             <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg text-xs flex items-center gap-2">
               <ShieldAlert className="w-4 h-4 flex-shrink-0" />
               {error}
+            </div>
+          )}
+
+          {isDemoMode && (
+            <div className="bg-amber-500/10 border border-amber-500/20 text-amber-300 px-4 py-3 rounded-lg text-xs flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Info className="w-4 h-4 text-amber-500 flex-shrink-0 animate-pulse" />
+                <span>
+                  <strong>Demo Mode Active:</strong> OpenWeather API key is not configured in environment settings. Telemetry is being simulated with realistic meteorological variations.
+                </span>
+              </div>
+              <Badge className="bg-amber-500 text-slate-950 font-bold shrink-0">Demo Mode</Badge>
             </div>
           )}
 
@@ -627,7 +642,7 @@ export default function Forecast() {
                         step="0.5"
                         value={windDelta}
                         onChange={(e) => setWindDelta(parseFloat(e.target.value))}
-                        className="w-full h-1.5 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                        className="w-full h-1.5 py-3 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-amber-500"
                       />
                       <div className="flex justify-between text-[9px] text-slate-500">
                         <span>-5 m/s (Dead Calm)</span>
@@ -651,7 +666,7 @@ export default function Forecast() {
                         step="0.5"
                         value={tempDelta}
                         onChange={(e) => setTempDelta(parseFloat(e.target.value))}
-                        className="w-full h-1.5 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                        className="w-full h-1.5 py-3 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-amber-500"
                       />
                       <div className="flex justify-between text-[9px] text-slate-500">
                         <span>-10°C (Cool Wave)</span>
@@ -675,7 +690,7 @@ export default function Forecast() {
                         step="5"
                         value={emissionDelta}
                         onChange={(e) => setEmissionDelta(parseInt(e.target.value))}
-                        className="w-full h-1.5 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                        className="w-full h-1.5 py-3 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-amber-500"
                       />
                       <div className="flex justify-between text-[9px] text-slate-500">
                         <span>-80% (Industrial Lock)</span>

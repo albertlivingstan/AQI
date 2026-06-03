@@ -85,4 +85,9 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  html, body {
+    overscroll-behavior-y: contain;
+    -webkit-tap-highlight-color: transparent;
+  }
 }
