@@ -172,13 +172,24 @@ function LocateMeBtn() {
 export default function GeoMap() {
   const { toast } = useToast();
   const [activeLayers, setActiveLayers] = useState(["solar", "aqi"]);
-  const [opacities, setOpacities] = useState({ solar: 0.7, aerosol: 0.6, aqi: 0.5, cloud: 0.5 });
+  const [opacities, setOpacities] = useState({ solar: 0.7, aerosol: 0.6, aqi: 0.5, cloud: 0.5, earth_engine: 0.6 });
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [loading, setLoading] = useState(false);
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
   const [mobileSheet, setMobileSheet] = useState(null);
   const [timeOffset, setTimeOffset] = useState(0);
+
+  const [eeTileUrl, setEeTileUrl] = useState(null);
+
+  useEffect(() => {
+    fetch('/api/satellite/mapid')
+      .then(res => res.json())
+      .then(data => {
+        if (data.urlFormat) setEeTileUrl(data.urlFormat);
+      })
+      .catch(err => console.warn('Earth Engine not initialized or offline.', err));
+  }, []);
 
   // Lifted state to track the user's global device position for SMS inclusion
   const [globalUserLocationName, setGlobalUserLocationName] = useState("Unknown");
@@ -312,6 +323,9 @@ export default function GeoMap() {
           )}
           {activeLayers.includes("aqi") && (
             <TileLayer url="https://tiles.aqicn.org/tiles/usepa-aqi/{z}/{x}/{y}.png" opacity={opacities.aqi} attribution="Air Quality Map" />
+          )}
+          {activeLayers.includes("earth_engine") && eeTileUrl && (
+            <TileLayer url={eeTileUrl} opacity={opacities.earth_engine} attribution="&copy; Google Earth Engine" />
           )}
           <ClickHandler onMapClick={handleMapClick} />
           <UserLocation setGlobalUserLocationName={setGlobalUserLocationName} />

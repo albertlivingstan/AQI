@@ -4,7 +4,6 @@ import {
   LayoutDashboard, TrendingUp, BarChart3, Database,
   Settings, ShieldCheck, Sun, Bell, Menu, X, ChevronRight, Globe
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },

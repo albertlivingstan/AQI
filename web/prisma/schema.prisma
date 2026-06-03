@@ -1,0 +1,86 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  name          String?
+  role          Role      @default(USER)
+  favorites     City[]    @relation("UserFavorites")
+  notifications Notification[]
+  reports       Report[]
+  createdAt     DateTime  @default(now())
+}
+
+model City {
+  id          String    @id @default(uuid())
+  name        String
+  country     String
+  latitude    Float
+  longitude   Float
+  aqiRecords  LiveAQI[]
+  predictions Prediction[]
+  favoritedBy User[]    @relation("UserFavorites")
+}
+
+model LiveAQI {
+  id          String    @id @default(uuid())
+  cityId      String
+  city        City      @relation(fields: [cityId], references: [id])
+  aqi         Int
+  pm25        Float
+  pm10        Float
+  o3          Float
+  no2         Float
+  timestamp   DateTime  @default(now())
+
+  @@index([cityId, timestamp])
+}
+
+model Prediction {
+  id          String    @id @default(uuid())
+  cityId      String
+  city        City      @relation(fields: [cityId], references: [id])
+  predictedAqi Int
+  forecastFor DateTime
+  modelUsed   String    // e.g., "LSTM", "XGBoost"
+  confidence  Float
+  createdAt   DateTime  @default(now())
+}
+
+model Notification {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  message     String
+  type        AlertType // e.g., DANGER, WARNING, INFO
+  read        Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+}
+
+model Report {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  title       String
+  fileUrl     String
+  createdAt   DateTime  @default(now())
+}
+
+enum Role {
+  USER
+  ADMIN
+  RESEARCHER
+}
+
+enum AlertType {
+  DANGER
+  WARNING
+  INFO
+}

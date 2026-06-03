@@ -195,7 +195,7 @@ export default function AdminPanel() {
           <h3 className="text-sm font-semibold text-white mb-4">API Keys & Access Control</h3>
           <div className="space-y-3">
             {[
-              { name: "NASA POWER API Key", key: "nasa_••••••••••••••••f3a2", scope: "Read-only", status: "Active" },
+              { name: "NASA POWER API Key", key: "HiR1gK8sClOMd1pgHzLAkH5yRss5sMuNyeZeVyey", scope: "Read-only", status: "Active" },
               { name: "OpenAQ API Key", key: "oaq_••••••••••••••••9c1b", scope: "Read-only", status: "Active" },
               { name: "Internal Admin Token", key: "admin_••••••••••••••••7e4f", scope: "Full access", status: "Active" },
             ].map(k => (

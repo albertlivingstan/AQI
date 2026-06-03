@@ -1,12 +1,28 @@
+import { useState, useEffect } from "react";
 import { monthlyData, weeklyData, aqiBreakdown, solarPlants } from "../data/mockData";
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, Legend, ScatterChart, Scatter, ZAxis, RadarChart, Radar, PolarGrid, PolarAngleAxis
+  Tooltip, ResponsiveContainer, Legend, RadarChart, Radar, PolarGrid, PolarAngleAxis
 } from "recharts";
 
 const impactColor = { Low: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20", Moderate: "text-amber-400 bg-amber-500/10 border-amber-500/20", High: "text-red-400 bg-red-500/10 border-red-500/20" };
 
 export default function Analytics() {
+  const [realtime, setRealtime] = useState(null);
+
+  useEffect(() => {
+    const fetchData = () => {
+      fetch('/api/realtime')
+        .then(res => res.json())
+        .then(data => setRealtime(data))
+        .catch(err => console.error("Error fetching realtime data:", err));
+    };
+    
+    fetchData();
+    const interval = setInterval(fetchData, 30000); // Update every 30s
+    return () => clearInterval(interval);
+  }, []);
+
   const radarData = solarPlants.map(p => ({
     plant: p.name.split(" ").slice(-1)[0],
     efficiency: p.efficiency,
@@ -16,9 +32,29 @@ export default function Analytics() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold text-white">Analytics Engine</h2>
-        <p className="text-xs text-slate-400 mt-0.5">Deep-dive correlation and trend analysis across all data sources</p>
+      <div className="flex justify-between items-start">
+        <div>
+          <h2 className="text-lg font-semibold text-white">Analytics Engine</h2>
+          <p className="text-xs text-slate-400 mt-0.5">Deep-dive correlation and trend analysis across all data sources</p>
+        </div>
+        {realtime && (
+          <div className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 flex items-center gap-4">
+            <div className="text-right">
+              <p className="text-[10px] text-slate-500 uppercase font-bold">Live Weather</p>
+              <p className="text-sm font-semibold text-amber-400">{realtime.temperature.toFixed(1)}°C</p>
+            </div>
+            <div className="w-px h-6 bg-slate-800" />
+            <div className="text-right">
+              <p className="text-[10px] text-slate-500 uppercase font-bold">Cloud Cover</p>
+              <p className="text-sm font-semibold text-blue-400">{realtime.cloudCover}%</p>
+            </div>
+            <div className="w-px h-6 bg-slate-800" />
+            <div className="text-right">
+              <p className="text-[10px] text-slate-500 uppercase font-bold">Current AQI</p>
+              <p className="text-sm font-semibold text-purple-400">{realtime.aqi}</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Monthly output with AQI trend */}

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Settings as SettingsIcon, Bell, Shield, Sliders, Save, MessageCircle, AlertTriangle } from "lucide-react";
+import { Bell, Sliders, Save, MessageCircle, AlertTriangle } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 
 export default function Settings() {

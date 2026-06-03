@@ -5,6 +5,7 @@ const layers = [
   { id: "solar", label: "Solar Radiation", desc: "MODIS/ERA5 GHI layer", color: "#f59e0b", icon: Sun },
   { id: "aerosol", label: "Aerosol Index", desc: "Sentinel-5P UVAI", color: "#a78bfa", icon: Wind },
   { id: "aqi", label: "AQI Heatmap", desc: "PM2.5 / PM10 overlay", color: "#f43f5e", icon: Wind },
+  { id: "earth_engine", label: "Live NO2 Density", desc: "Google Earth Engine S5P", color: "#3b82f6", icon: Cloud },
   { id: "cloud", label: "Cloud Cover", desc: "MODIS Terra daily", color: "#94a3b8", icon: Cloud },
 ];
 
