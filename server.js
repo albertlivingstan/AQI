@@ -236,6 +236,51 @@ app.get('/api/weather/forecast', async (req, res) => {
   }
 });
 
+// API: Fetch NASA POWER Daily Satellite Solar Irradiance & Cloud Telemetry
+app.get('/api/nasa/solar', async (req, res) => {
+  const lat = req.query.lat || '12.9716';
+  const lon = req.query.lon || '77.5946';
+  try {
+    const today = new Date();
+    const startDate = new Date();
+    startDate.setDate(today.getDate() - 7);
+    const startStr = startDate.toISOString().split('T')[0].replace(/-/g, '');
+    const endStr = today.toISOString().split('T')[0].replace(/-/g, '');
+    
+    // NASA POWER API: GHI (ALLSKY_SFC_SW_DWN) and Cloud Optical Depth (CLD_OPD)
+    const url = `https://power.larc.nasa.gov/api/temporal/daily/point?parameters=ALLSKY_SFC_SW_DWN,CLD_OPD&community=RE&longitude=${lon}&latitude=${lat}&start=${startStr}&end=${endStr}&format=JSON`;
+    
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`NASA API returned status ${response.status}`);
+    }
+    const data = await response.json();
+    
+    // Extract daily lists of solar radiation (kW-hr/m^2/day)
+    const ghiData = data.properties?.parameter?.ALLSKY_SFC_SW_DWN || {};
+    const cldOpdData = data.properties?.parameter?.CLD_OPD || {};
+    
+    res.json({
+      coord: { lat: parseFloat(lat), lon: parseFloat(lon) },
+      ghi: ghiData,
+      cld_opd: cldOpdData,
+      provider: 'NASA POWER Satellite Services',
+      timestamp: new Date().toISOString()
+    });
+  } catch (err) {
+    console.error('Error fetching NASA POWER satellite solar data:', err.message);
+    // Return graceful fallback so user demo doesn't crash if NASA API is down
+    res.json({
+      coord: { lat: parseFloat(lat), lon: parseFloat(lon) },
+      ghi: { "20260629": 5.8, "20260630": 6.2 },
+      cld_opd: { "20260629": 1.25, "20260630": 0.82 },
+      demoMode: true,
+      provider: 'NASA POWER Satellite Services (Mock Fallback)',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // API: Get Data Sources
 app.get('/api/sources', async (req, res) => {
   try {
